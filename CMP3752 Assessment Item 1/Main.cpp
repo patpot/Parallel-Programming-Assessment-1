@@ -21,7 +21,7 @@ void calculate_histogram() {
 }
 
 int main(int argc, char** argv) {
-	//Part 1 - handle command line options such as device selection, verbosity, etc.
+	// Handle command line options such as device selection, verbosity, etc.
 	int platform_id = 0;
 	int device_id = 0;
 	string image_filename = "test_large.pgm";
@@ -36,45 +36,47 @@ int main(int argc, char** argv) {
 
 	cimg::exception_mode(0);
 
-	// Part 2 - get user input for the bin number
+	// Get user input for the bin number
 	string userCommand;
 	int bin_num = 0;
 	std::cout << "Enter a bin number in range 0-256" << "\n";
 	while (true) // while the user hasn't entered a valid number the program will keep running
 	{
-		getline(std::cin, userCommand); // gets input from user
-		if (userCommand == "") { std::cout << "Please enter a number." << "\n"; continue; } // checks user input isn't empty
+		getline(std::cin, userCommand); // Gets input from user
+		if (userCommand == "") { std::cout << "Please enter a number." << "\n"; continue; } // Checks user input isn't empty
 
-		try { bin_num = std::stoi(userCommand); } // attempt to convert the user input to an integer
+		try { bin_num = std::stoi(userCommand); } // Attempt to convert the user input to an integer
 		catch (...) { std::cout << "Please enter an integer." << "\n"; continue; }
 
-		if (bin_num >= 0 && bin_num <= 256) { break; } // checks user input is in range
+		if (bin_num >= 0 && bin_num <= 256) { break; } // Checks user input is in range
 		else { std::cout << "Please enter a number in range 0-256." << "\n"; continue; }
 	}
 
 
 	//detect any potential exceptions
 	try {
+		// Read in the image from a given file path
 		CImg<unsigned char> image_input(image_filename.c_str());
+		// Display the image so we can see a before and after
 		CImgDisplay disp_input(image_input, "input");
 
-		// select computing devices
+		// Select computing devices
 		cl::Context context = GetContext(platform_id, device_id);
 
-		// display the selected device
+		// Display the selected device
 		std::cout << "Running on " << GetPlatformName(platform_id) << ", " << GetDeviceName(platform_id, device_id) << std::endl;
 
-		// create a queue to which we will push commands for the device
+		// Create a queue to which we will push commands for the device
 		cl::CommandQueue queue(context, CL_QUEUE_PROFILING_ENABLE);
 
-		// load & build the device code
+		// Load & build the device code
 		cl::Program::Sources sources;
 
 		AddSources(sources, "kernels/my_kernels.cl");
 
 		cl::Program program(context, sources);
 
-		// build and debug the kernel code
+		// Build and debug the kernel code
 		try {
 			program.build();
 		}
@@ -166,7 +168,9 @@ int main(int argc, char** argv) {
 		// Create an event to measure the time for the LUT kernel execution
 		cl::Event lut_profiling_event;
 
+		// Enqueue the LUT kernel to the command queue with a work size equal to the size of the histogram vector
 		queue.enqueueNDRangeKernel(kernel_LUT, cl::NullRange, cl::NDRange(hist_size), cl::NullRange, NULL, &lut_profiling_event);
+		// Read the LUT output from the device buffer to the host vector LUT
 		queue.enqueueReadBuffer(dev_LUT_output, CL_TRUE, 0, hist_size, &LUT[0]);
 
 
@@ -181,7 +185,9 @@ int main(int argc, char** argv) {
 		cl::Event back_proj_profiling_event;
 
 		vector<unsigned char> output_buffer(image_input.size());
+		// Enqueue the back projection kernel to the command queue with a work size equal to the size of the image input
 		queue.enqueueNDRangeKernel(kernel_back_proj, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &back_proj_profiling_event);
+		// Read the back projection output from the device buffer to the host vector output_buffer
 		queue.enqueueReadBuffer(dev_image_output, CL_TRUE, 0, output_buffer.size(), &output_buffer.data()[0]);
 
 
@@ -210,17 +216,17 @@ int main(int argc, char** argv) {
 
 		if (isColour) {
 			// The image was RGB, so we can't just take one channel from our output, we also need to add back in the CR and CB channels we cached previously.
-			CImg<unsigned char> RGBImg(output_image.width(), output_image.height(), 1, 3);
+			CImg<unsigned char> YCbCrImg(output_image.width(), output_image.height(), 1, 3);
 			for (int x = 0; x < output_image.width(); x++) {
 				for (int y = 0; y < output_image.height(); y++) {
-					RGBImg(x, y, 0) = output_image(x, y);
-					RGBImg(x, y, 1) = cb(x, y);
-					RGBImg(x, y, 2) = cr(x, y);
+					YCbCrImg(x, y, 0) = output_image(x, y);
+					YCbCrImg(x, y, 1) = cb(x, y);
+					YCbCrImg(x, y, 2) = cr(x, y);
 				}
 			}
 
 			// Convert back to RGB for proper output
-			output_image = RGBImg.get_YCbCrtoRGB();
+			output_image = YCbCrImg.get_YCbCrtoRGB();
 		}
 
 		CImgDisplay disp_output(output_image, "output");
