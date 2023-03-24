@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 	// Handle command line options such as device selection, verbosity, etc.
 	int platform_id = 0;
 	int device_id = 0;
-	string image_filename = "test_large.pgm";
+	string image_filename = "test.pgm";
 
 	for (int i = 1; i < argc; i++) {
 		if ((strcmp(argv[i], "-p") == 0) && (i < (argc - 1))) { platform_id = atoi(argv[++i]); }
@@ -131,6 +131,10 @@ int main(int argc, char** argv) {
 		// Read the histogram output from the device buffer to the host vector H
 		queue.enqueueReadBuffer(dev_histogram_output, CL_TRUE, 0, hist_size, &H[0]);
 
+		std::cout << "Histogram values:" << std::endl;
+		for (int x : H) {
+			std::cout << x << " ";
+		}
 
 		// Step 2: Calculate Cumulative Histogram
 		// Create a vector of size bin_num to store the cumulative histogram
@@ -152,6 +156,10 @@ int main(int argc, char** argv) {
 		// Read the cumulative histogram output from the device buffer to the host vector CH
 		queue.enqueueReadBuffer(dev_cumulative_histogram_output, CL_TRUE, 0, hist_size, &CH[0]);
 
+		std::cout << "Cumulative Histogram values:" << std::endl;
+		for (int x : CH) {
+			std::cout << x << " ";
+		}
 
 		// Step 3: Create Look-up Table of normalised values
 		// Create a vector of size bin_num to store the LUT
@@ -189,7 +197,6 @@ int main(int argc, char** argv) {
 		queue.enqueueNDRangeKernel(kernel_back_proj, cl::NullRange, cl::NDRange(image_input.size()), cl::NullRange, NULL, &back_proj_profiling_event);
 		// Read the back projection output from the device buffer to the host vector output_buffer
 		queue.enqueueReadBuffer(dev_image_output, CL_TRUE, 0, output_buffer.size(), &output_buffer.data()[0]);
-
 
 		// Output all execution times and memory transfers
 		std::cout << std::endl;

@@ -1,6 +1,6 @@
 kernel void histogram(global const uchar* A, global int* B) {
 	int id = get_global_id(0);
-	B[A[id]]++; // Take value as a bin index
+	atomic_inc(&B[A[id]]);
 }
 
 kernel void cumulative_histogram(global const int* A, global int* B) {
